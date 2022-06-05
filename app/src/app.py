@@ -2,11 +2,11 @@ import logging
 import sys
 
 import uvicorn
-from api_interfaces import user_router
-from fastapi import FastAPI
-from fastapi.security import OAuth2PasswordBearer
-from models import User
-from tortoise.contrib.fastapi import register_tortoise
+from api_interfaces.user import user_router
+from database import db
+from database.exceptions import UsernameAlreadyExists
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 
 from utils.environment import os_environment
 from utils.logger import init_logging
@@ -16,7 +16,14 @@ routers = [user_router]
 
 app = FastAPI()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@app.exception_handler(UsernameAlreadyExists)
+async def username_exception_handler(
+    request: Request, exception: UsernameAlreadyExists
+):
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exception)}
+    )
 
 
 def signal_handler(signal, frame):
@@ -27,8 +34,17 @@ def signal_handler(signal, frame):
 def setup_routers(app, routers):
     for router in routers:
         router.jwt_secret = os_environment("JWT_SECRET", "myjwtsecret")
-        router.user = User
         app.include_router(router)
+
+
+@app.on_event("startup")
+async def startup():
+    await db.connect_to_database(path=os_environment("DB_PATH", None))
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await db.close_database_connection()
 
 
 if __name__ == "__main__":
@@ -42,15 +58,6 @@ if __name__ == "__main__":
 
     # setup routers
     setup_routers(app, routers)
-
-    # register database
-    register_tortoise(
-        app,
-        db_url="sqlite://db.sqlite3",
-        modules={"models": ["models"]},
-        generate_schemas=True,
-        add_exception_handlers=True,
-    )
 
     # start server
     uvicorn.run(

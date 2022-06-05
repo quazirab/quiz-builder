@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 
+from database.exceptions import CredentialsException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from models.token import Token
+from models.token import Token, TokenData
 from passlib.context import CryptContext
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
@@ -32,3 +34,15 @@ class UserSecurity:
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
         return Token(access_token=encoded_jwt, token_type="bearer")
+
+    @staticmethod
+    async def get_current_username(token: str = Depends(oauth2_scheme)):
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username is None:
+                raise CredentialsException("Could not validate credentials")
+            token_data = TokenData(username=username)
+        except JWTError:
+            raise CredentialsException("Could not validate credentials")
+        return token_data.username

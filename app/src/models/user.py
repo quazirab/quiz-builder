@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 
 
 class User(BaseModel):
@@ -12,3 +12,9 @@ class CreateUser(BaseModel):
 
 class UserInDB(User):
     hashed_password: str
+
+
+class UserOutDB(User):
+    username: str
+    unpublished_quiz: list[int] | None
+    published_quiz: list[int] | None

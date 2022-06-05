@@ -4,7 +4,7 @@ import sys
 import uvicorn
 from api_interfaces.user import user_router
 from database import db
-from database.exceptions import UsernameAlreadyExists
+from database.exceptions import CredentialsException, UsernameAlreadyExists
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
@@ -23,6 +23,13 @@ async def username_exception_handler(
 ):
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exception)}
+    )
+
+
+@app.exception_handler(CredentialsException)
+async def username_exception_handler(request: Request, exception: CredentialsException):
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": str(exception)}
     )
 
 

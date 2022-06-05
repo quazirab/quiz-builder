@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import List
 
-from models.user import UserInDB
+from models.user import UserInDB, UserOutDB
 
 
 class DatabaseManager(object):
@@ -26,7 +26,7 @@ class DatabaseManager(object):
         pass
 
     @abstractmethod
-    async def get_user(self, username: str):
+    async def get_current_user(self) -> UserOutDB:
         pass
 
     @abstractmethod

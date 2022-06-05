@@ -3,11 +3,12 @@ from typing import Optional
 
 import pymongo
 from bson import ObjectId
+from database import UserSecurity
 from database.database_manager import DatabaseManager
 from database.exceptions import UsernameAlreadyExists
-from database.user_security import UserSecurity
+from fastapi import Depends
 from models.token import Token
-from models.user import User, UserInDB
+from models.user import User, UserInDB, UserOutDB
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from passlib.context import CryptContext
 
@@ -58,3 +59,7 @@ class MongoManager(DatabaseManager, UserSecurity):
             return None
         token = self.create_access_token(user.username)
         return token
+
+    async def get_current_user(self, current_username: str) -> UserOutDB:
+        current_user = await self.db.user.find_one({"username": current_username})
+        return UserOutDB(**current_user)

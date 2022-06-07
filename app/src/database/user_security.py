@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from bson import ObjectId
 from database.exceptions import CredentialsException
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -24,9 +25,9 @@ class UserSecurity:
         return pwd_context.hash(password)
 
     @staticmethod
-    def create_access_token(username: str) -> Token:
+    def create_access_token(user_id: str) -> Token:
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        to_encode = {"sub": username}
+        to_encode = {"sub": user_id}
         if access_token_expires:
             expire = datetime.utcnow() + access_token_expires
         else:
@@ -36,13 +37,13 @@ class UserSecurity:
         return Token(access_token=encoded_jwt, token_type="bearer")
 
     @staticmethod
-    async def get_current_username(token: str = Depends(oauth2_scheme)):
+    async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            username: str = payload.get("sub")
-            if username is None:
+            user_id: str = payload.get("sub")
+            if user_id is None:
                 raise CredentialsException("Could not validate credentials")
-            token_data = TokenData(username=username)
+            token_data = TokenData(user_id=user_id)
         except JWTError:
             raise CredentialsException("Could not validate credentials")
-        return token_data.username
+        return token_data.user_id

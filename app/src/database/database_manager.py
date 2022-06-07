@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import List
 
-from models.user import UserInDB, UserOutDB
+from models import CreateUserHashed, UserOutDB
 
 
 class DatabaseManager(object):
@@ -22,7 +22,7 @@ class DatabaseManager(object):
         pass
 
     @abstractmethod
-    async def create_user(self, user: UserInDB):
+    async def create_user(self, user: CreateUserHashed):
         pass
 
     @abstractmethod

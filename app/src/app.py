@@ -2,6 +2,7 @@ import logging
 import sys
 
 import uvicorn
+from api_interfaces.quiz import quiz_router
 from api_interfaces.user import user_router
 from database import db
 from database.exceptions import CredentialsException, UsernameAlreadyExists
@@ -12,7 +13,7 @@ from utils.environment import os_environment
 from utils.logger import init_logging
 from utils.signal_handler import load_signal_handler
 
-routers = [user_router]
+routers = [user_router, quiz_router]
 
 app = FastAPI()
 
@@ -40,7 +41,6 @@ def signal_handler(signal, frame):
 
 def setup_routers(app, routers):
     for router in routers:
-        router.jwt_secret = os_environment("JWT_SECRET", "myjwtsecret")
         app.include_router(router)
 
 

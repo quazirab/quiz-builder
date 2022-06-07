@@ -1,1 +1,8 @@
 fastapi==0.78.0
+uvicorn==0.17.6
+passlib==1.7.4
+python-jose==3.3.0
+pymongo==4.1.1
+python-multipart==0.0.5
+bcrypt==3.2.2
+motor==3.0.0

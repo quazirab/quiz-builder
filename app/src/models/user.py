@@ -27,8 +27,8 @@ class UserInDBwID(CreateUserHashed):
 
 
 class UserOutDB(User):
-    unpublished_quiz: list[PydanticObjectId] = []
-    published_quiz: list[PydanticObjectId] = []
+    unpublished_quiz: list[PydanticObjectId] | None = []
+    published_quiz: list[PydanticObjectId] | None = []
     score: int = 0
 
     class Config:

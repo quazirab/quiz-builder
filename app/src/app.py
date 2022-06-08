@@ -5,7 +5,8 @@ import uvicorn
 from api_interfaces.quiz import quiz_router
 from api_interfaces.user import user_router
 from database import db
-from database.exceptions import CredentialsException, UsernameAlreadyExists
+from database.exceptions import (CredentialsException, UsernameAlreadyExists,
+                                 UserNotAllowed)
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
@@ -33,6 +34,12 @@ async def username_exception_handler(request: Request, exception: CredentialsExc
         status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": str(exception)}
     )
 
+
+@app.exception_handler(UserNotAllowed)
+async def username_exception_handler(request: Request, exception: UserNotAllowed):
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN, content={"detail": str(exception)}
+    )
 
 def signal_handler(signal, frame):
     print("\nprogram exiting gracefully")

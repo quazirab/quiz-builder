@@ -13,3 +13,7 @@ class PydanticObjectId(ObjectId):
         if not isinstance(v, ObjectId):
             raise TypeError("ObjectId required")
         return str(v)
+
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update(type="string")

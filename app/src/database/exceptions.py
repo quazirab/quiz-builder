@@ -4,3 +4,6 @@ class UsernameAlreadyExists(Exception):
 
 class CredentialsException(Exception):
     pass
+
+class UserNotAllowed(Exception):
+    pass

@@ -4,10 +4,11 @@ from typing import Optional
 import pymongo
 from bson import ObjectId
 from database import DatabaseManager, UserSecurity
-from database.exceptions import UsernameAlreadyExists, UserNotAllowed
+from database.exceptions import (QuizPlayerFailed, UsernameAlreadyExists,
+                                 UserNotAllowed)
 from fastapi import Depends
-from models import (CreateUserHashed, Quiz, QuizInDB, QuizUpdate, Token,
-                    UserInDBwID, UserOutDB)
+from models import (CreateUserHashed, CreateUserInsert, Quiz, QuizInDB,
+                    QuizWithId, SubmitQuiz, Token, UserInDBwID, UserOutDB)
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from passlib.context import CryptContext
 
@@ -47,6 +48,7 @@ class MongoManager(DatabaseManager, UserSecurity):
 
     async def create_user(self, user: CreateUserHashed):
         try:
+            user = CreateUserInsert(**user.dict())
             await self.db.user.insert_one(user.dict())
         except pymongo.errors.DuplicateKeyError:
             raise UsernameAlreadyExists(f"Username already exists")
@@ -76,8 +78,6 @@ class MongoManager(DatabaseManager, UserSecurity):
         quiz_in_db = QuizInDB(**quiz.dict(), owner_id=current_user_id)
         quiz_id = await self.db.unpublished_quiz.insert_one(quiz_in_db.dict())
 
-        if current_user.unpublished_quiz is None :
-            current_user.unpublished_quiz = []
         current_user.unpublished_quiz.append(quiz_id.inserted_id)
 
         await self.db.user.update_one(
@@ -98,7 +98,7 @@ class MongoManager(DatabaseManager, UserSecurity):
         return Quiz(**quiz)
 
 
-    async def update_quiz(self, current_user_id: str, quiz: QuizUpdate):
+    async def update_quiz(self, current_user_id: str, quiz: QuizWithId):
         # find all the unpublished quizes by the current user
         user_unpublished_quizes = await self.db.user.find_one(ObjectId(current_user_id), {"unpublished_quiz":1})
         quiz_id_obj = ObjectId(quiz.id)
@@ -126,8 +126,6 @@ class MongoManager(DatabaseManager, UserSecurity):
 
         # update the user
         user_quizes["unpublished_quiz"].remove(quiz_id_obj)
-        if user_quizes["published_quiz"] is None:
-            user_quizes["published_quiz"] = []
         user_quizes["published_quiz"].append(quiz_id_obj)
         await self.db.user.update_one({"_id": user_id_obj}, {"$set": {"unpublished_quiz":user_quizes["unpublished_quiz"], "published_quiz": user_quizes["published_quiz"]}})
 
@@ -152,3 +150,55 @@ class MongoManager(DatabaseManager, UserSecurity):
 
         # delete the quiz from the collection
         await self.db[collection].delete_one({"_id": quiz_id_obj})
+
+    async def play_quiz(self, current_user_id: str) -> QuizWithId:
+        user_id_obj = ObjectId(current_user_id)
+        # check if current user has any active play_quiz, if yes return that
+        play_quiz = await self.db.user.find_one(user_id_obj, {"play_quiz":1})
+        if play_quiz["play_quiz"]:
+            quiz =  await self.db.published_quiz.find_one(play_quiz["play_quiz"])
+            #  it might be deleted by the owner
+            if quiz:
+                return QuizWithId(**quiz, id=quiz["_id"])
+
+        # get all the user quizes
+        user_quizes = await self.db.user.find_one(user_id_obj, {"published_quiz":1, "played_quiz":1})
+        quiz = await self.db.published_quiz.find_one({"_id": {"$nin": user_quizes["published_quiz"] + user_quizes["played_quiz"]}})
+        if not quiz:
+            raise QuizPlayerFailed('No more quizes to play')
+        await self.db.user.update_one({"_id": user_id_obj}, {"$set": {"play_quiz":quiz["_id"]}})
+        return QuizWithId(**quiz, id=quiz["_id"])
+
+    async def submit_play_quiz(self, current_user_id: str, submitted_quiz: SubmitQuiz) -> int:
+        user_id_obj = ObjectId(current_user_id)
+        user_play_quiz = await self.db.user.find_one(user_id_obj, {"play_quiz":1, "score":1,"played_quiz":1})
+        # check if the quiz_id matches the current user play quiz
+        if str(user_play_quiz["play_quiz"]) != submitted_quiz.id:
+            raise QuizPlayerFailed(f"Player not allowed to play this quiz, please get a quiz first")
+
+        quiz_id_obj = ObjectId(submitted_quiz.id)
+        quiz = await self.db.published_quiz.find_one(quiz_id_obj)
+        quiz_model = Quiz(**quiz)
+
+        if not all(answer in quiz_model.questions for answer in submitted_quiz.answers):
+            raise QuizPlayerFailed(f"Not all the answer provided exists in given question")
+
+        rightness = 1/(len(quiz_model.answers))
+        wrongness = 1/(len(quiz_model.questions)-len(quiz_model.answers))
+
+        score = 0
+
+        for answer in submitted_quiz.answers:
+            if answer in quiz_model.answers:
+                score += rightness
+            else:
+                score -= wrongness
+
+        # set user score and
+        user_play_quiz["score"] += score
+        user_play_quiz["play_quiz"] = None
+        user_play_quiz["played_quiz"].append(quiz_id_obj)
+
+        await self.db.user.update_one({"_id": user_id_obj}, {"$set": user_play_quiz})
+
+        return score

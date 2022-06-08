@@ -7,3 +7,6 @@ class CredentialsException(Exception):
 
 class UserNotAllowed(Exception):
     pass
+
+class QuizPlayerFailed(Exception):
+    pass

@@ -27,10 +27,15 @@ class UserInDBwID(CreateUserHashed):
 
 
 class UserOutDB(User):
-    unpublished_quiz: list[PydanticObjectId] | None = []
-    published_quiz: list[PydanticObjectId] | None = []
+    unpublished_quiz: list[PydanticObjectId] = []
+    published_quiz: list[PydanticObjectId] = []
+    played_quiz: list[PydanticObjectId] = []
+    play_quiz: PydanticObjectId | None
     score: int = 0
 
     class Config:
         allow_population_by_field_name = True
         arbitrary_types_allowed = True
+
+class CreateUserInsert(CreateUserHashed, UserOutDB):
+    pass

@@ -2,19 +2,21 @@ import logging
 import sys
 
 import uvicorn
-from api_interfaces.quiz import quiz_router
+from api_interfaces.quiz import quiz_creator_router, quiz_player_router
 from api_interfaces.user import user_router
-from database import db
-from database.exceptions import (CredentialsException, UsernameAlreadyExists,
-                                 UserNotAllowed)
-from fastapi import FastAPI, Request, status
+from database import DatabaseManager, db, get_database
+from database.exceptions import (CredentialsException, QuizPlayerFailed,
+                                 UsernameAlreadyExists, UserNotAllowed)
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordRequestForm
+from models import Token
 
 from utils.environment import os_environment
 from utils.logger import init_logging
 from utils.signal_handler import load_signal_handler
 
-routers = [user_router, quiz_router]
+routers = [user_router, quiz_creator_router, quiz_player_router]
 
 app = FastAPI()
 
@@ -40,6 +42,31 @@ async def username_exception_handler(request: Request, exception: UserNotAllowed
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN, content={"detail": str(exception)}
     )
+
+@app.exception_handler(QuizPlayerFailed)
+async def username_exception_handler(request: Request, exception: QuizPlayerFailed):
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN, content={"detail": str(exception)}
+    )
+
+@app.get("/")
+async def root():
+    return "ok"
+
+@app.post("/token", response_model=Token)
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: DatabaseManager = Depends(get_database),
+):
+    token = await db.get_access_token(form_data.username, form_data.password)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token
+
 
 def signal_handler(signal, frame):
     print("\nprogram exiting gracefully")

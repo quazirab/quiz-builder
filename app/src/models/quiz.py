@@ -26,5 +26,10 @@ class Quiz(BaseModel):
 class QuizInDB(Quiz):
     owner_id: str
 
-class QuizUpdate(Quiz):
+class QuizWithId(Quiz):
     id: PydanticObjectId
+
+
+class SubmitQuiz(BaseModel):
+    id: PydanticObjectId
+    answers: list[PydanticObjectId]

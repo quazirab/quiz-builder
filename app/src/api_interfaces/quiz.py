@@ -1,13 +1,15 @@
 from api_interfaces.api_router import AppRouter
 from database import DatabaseManager, UserSecurity, get_database
 from fastapi import Depends, status
-from models import Quiz, QuizUpdate
+from models import Quiz, QuizWithId, SubmitQuiz
 
-quiz_router = AppRouter()
+quiz_creator_router = AppRouter(tags=["quiz-creator"],prefix="/quiz/creator")
+quiz_player_router = AppRouter(tags=["quiz-player"],prefix="/quiz/player")
 
+#===========================Creator==============================
 
 # create quiz
-@quiz_router.post("/quiz/creator")
+@quiz_creator_router.post("")
 async def create_quiz(
     quiz: Quiz,
     current_user_id: str = Depends(UserSecurity.get_current_user_id),
@@ -17,16 +19,16 @@ async def create_quiz(
 
 
 # # update quiz
-@quiz_router.put("/quiz/creator")
+@quiz_creator_router.put("")
 async def update_unpublished_quiz(
-    quiz: QuizUpdate,
+    quiz: QuizWithId,
     current_user_id: str = Depends(UserSecurity.get_current_user_id),
     db: DatabaseManager = Depends(get_database),
 ):
     await db.update_quiz(current_user_id=current_user_id, quiz=quiz)
 
 # get quiz
-@quiz_router.get("/quiz/creator", response_model=Quiz)
+@quiz_creator_router.get("", response_model=Quiz)
 async def update_unpublished_quiz(
     quiz_id: str,
     current_user_id: str = Depends(UserSecurity.get_current_user_id),
@@ -36,7 +38,7 @@ async def update_unpublished_quiz(
 
 
 # publish quiz
-@quiz_router.post("/quiz/creator/publish", status_code=status.HTTP_200_OK)
+@quiz_creator_router.post("/publish", status_code=status.HTTP_200_OK)
 async def publish_quiz(
     quiz_id: str,
     current_user_id: str = Depends(UserSecurity.get_current_user_id),
@@ -45,10 +47,30 @@ async def publish_quiz(
     await db.publish_quiz(current_user_id=current_user_id, quiz_id=quiz_id)
 
 # delete quiz
-@quiz_router.delete("/quiz/creator", status_code=status.HTTP_200_OK)
+@quiz_creator_router.delete("", status_code=status.HTTP_200_OK)
 async def delete_quiz(
     quiz_id: str,
     current_user_id: str = Depends(UserSecurity.get_current_user_id),
     db: DatabaseManager = Depends(get_database),
 ):
     await db.delete_quiz(current_user_id=current_user_id, quiz_id=quiz_id)
+
+
+#================================Player==================================
+
+# Get quiz
+@quiz_player_router.get("", response_model=QuizWithId)
+async def get_quiz_to_play(
+    current_user_id: str = Depends(UserSecurity.get_current_user_id),
+    db: DatabaseManager = Depends(get_database),
+):
+    return await db.play_quiz(current_user_id=current_user_id)
+
+# Submit quiz
+@quiz_player_router.post("")
+async def submit_quiz_to_play(
+    submitted_quiz: SubmitQuiz,
+    current_user_id: str = Depends(UserSecurity.get_current_user_id),
+    db: DatabaseManager = Depends(get_database),
+):
+    return await db.submit_play_quiz(current_user_id=current_user_id, submitted_quiz=submitted_quiz)

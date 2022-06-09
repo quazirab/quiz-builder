@@ -8,7 +8,8 @@ from database.exceptions import (QuizPlayerFailed, UsernameAlreadyExists,
                                  UserNotAllowed)
 from fastapi import Depends
 from models import (CreateUserHashed, CreateUserInsert, Quiz, QuizInDB,
-                    QuizWithId, SubmitQuiz, Token, UserInDBwID, UserOutDB)
+                    QuizWithId, QuizWithIdAnswers, Solution, SubmitQuiz, Token,
+                    UserInDBwID, UserOutDB)
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from passlib.context import CryptContext
 
@@ -98,7 +99,7 @@ class MongoManager(DatabaseManager, UserSecurity):
         return Quiz(**quiz)
 
 
-    async def update_quiz(self, current_user_id: str, quiz: QuizWithId):
+    async def update_quiz(self, current_user_id: str, quiz: QuizWithIdAnswers):
         # find all the unpublished quizes by the current user
         user_unpublished_quizes = await self.db.user.find_one(ObjectId(current_user_id), {"unpublished_quiz":1})
         quiz_id_obj = ObjectId(quiz.id)
@@ -180,6 +181,11 @@ class MongoManager(DatabaseManager, UserSecurity):
         quiz = await self.db.published_quiz.find_one(quiz_id_obj)
         quiz_model = Quiz(**quiz)
 
+        # if one valid answer and multiple answers sunmitted
+        if len(quiz_model.answers) == 1 and len(submitted_quiz.answers) > 1:
+            raise QuizPlayerFailed(f"This quiz accepts one answer")
+
+
         if not all(answer in quiz_model.questions for answer in submitted_quiz.answers):
             raise QuizPlayerFailed(f"Not all the answer provided exists in given question")
 
@@ -201,4 +207,37 @@ class MongoManager(DatabaseManager, UserSecurity):
 
         await self.db.user.update_one({"_id": user_id_obj}, {"$set": user_play_quiz})
 
+        # update to quiz_solutions
+        user_solution = {
+            "quiz_id": quiz_id_obj,
+            "title": quiz_model.title,
+            "submitted_answers": submitted_quiz.answers
+        }
+        # for user
+        await self.db.user.update_one({"_id": user_id_obj}, {"$push":{"play_solution": user_solution}})
+
+        # for owner
+        await self.db.user.update_one({"_id": ObjectId(quiz["owner_id"])}, {"$push":{"creator_solution": user_solution}})
+
         return score
+
+    async def get_player_solution(self, current_user_id: str) -> list[Solution]:
+        user_id_obj = ObjectId(current_user_id)
+        play_solution =  await self.db.user.find_one(user_id_obj, {"play_solution":1})
+
+        solutions = []
+
+        for s in play_solution["play_solution"]:
+            solutions.append(Solution(**s))
+
+        return solutions
+
+    async def get_creator_solution(self, current_user_id: str) -> list[Solution]:
+        user_id_obj = ObjectId(current_user_id)
+        creator_solution = await self.db.user.find_one(user_id_obj, {"creator_solution":1})
+        solutions = []
+
+        for s in creator_solution["creator_solution"]:
+            solutions.append(Solution(**s))
+
+        return solutions

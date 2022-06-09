@@ -11,10 +11,14 @@ user_router = AppRouter(tags=["user"],prefix="/user")
 @user_router.post(
     "", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
 )
+
 async def create_user(user: CreateUser, db: DatabaseManager = Depends(get_database)):
     user = CreateUserHashed(
         username=user.username, hashed_password=bcrypt.hash(user.password)
     )
+    """
+    Create User
+    """
     await db.create_user(user)
 
 
@@ -23,4 +27,7 @@ async def current_user(
     current_user_id: str = Depends(UserSecurity.get_current_user_id),
     db: DatabaseManager = Depends(get_database),
 ):
+    """
+    Get user
+    """
     return await db.get_current_user(current_user_id=current_user_id)

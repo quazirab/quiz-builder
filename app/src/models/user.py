@@ -1,5 +1,6 @@
 from bson import ObjectId
 from models.pyobjectid import PydanticObjectId
+from models.quiz import StoreSolution
 from pydantic import BaseModel, Field
 
 
@@ -37,5 +38,9 @@ class UserOutDB(User):
         allow_population_by_field_name = True
         arbitrary_types_allowed = True
 
-class CreateUserInsert(CreateUserHashed, UserOutDB):
+class UserAllInfo(UserOutDB):
+    play_solution: list[StoreSolution] = []
+    creator_solution: list[StoreSolution] = []
+
+class CreateUserInsert(CreateUserHashed, UserAllInfo):
     pass

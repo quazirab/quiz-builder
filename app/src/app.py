@@ -104,5 +104,5 @@ if __name__ == "__main__":
     uvicorn.run(
         "__main__:app",
         host=os_environment("APP_HOST", "0.0.0.0"),
-        port=os_environment("APP_PORT", 5001),
+        port=int(os_environment("APP_PORT", 5000)),
     )

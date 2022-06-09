@@ -2,7 +2,18 @@ version: '3.1'
 
 services:
 
+  quiz-app:
+    container_name: quiz-app
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    environment:
+      DB_PATH: mongodb://root:example@mongo:27017
+    ports:
+      - 5001:5000
+
   mongo:
+    container_name: mongo
     image: mongo
     restart: always
     ports:
@@ -10,6 +21,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - demo-vol:/data/db
 
   mongo-express:
     image: mongo-express
@@ -20,3 +33,8 @@ services:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: example
       ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
+
+
+volumes:
+  demo-vol:
+    driver: local
